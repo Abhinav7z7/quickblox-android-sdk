@@ -2,12 +2,24 @@ package com.quickblox.sample.chat.ui.activities;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.KeyguardManager;
+import android.app.Service;
+import android.app.admin.DevicePolicyManager;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
+import android.os.IBinder;
+import android.os.PowerManager;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
@@ -17,10 +29,8 @@ import android.widget.TextView;
 
 import com.quickblox.core.QBEntityCallbackImpl;
 import com.quickblox.chat.QBChatService;
-import com.quickblox.chat.model.QBChatHistoryMessage;
 import com.quickblox.chat.model.QBChatMessage;
 import com.quickblox.chat.model.QBDialog;
-import com.quickblox.chat.model.QBMessage;
 import com.quickblox.core.request.QBRequestGetBuilder;
 import com.quickblox.sample.chat.ApplicationSingleton;
 import com.quickblox.sample.chat.R;
@@ -34,6 +44,8 @@ import org.jivesoftware.smack.XMPPException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class ChatActivity extends Activity {
 
@@ -53,7 +65,9 @@ public class ChatActivity extends Activity {
     private ChatAdapter adapter;
     private QBDialog dialog;
 
-    private ArrayList<QBChatHistoryMessage> history;
+    private ArrayList<QBChatMessage> history;
+
+    private MyBroadCastReceiver myBroadCastReceiver = new MyBroadCastReceiver();
 
     public static void start(Context context, Bundle bundle) {
         Intent intent = new Intent(context, ChatActivity.class);
@@ -65,7 +79,17 @@ public class ChatActivity extends Activity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
+
+
+
         initViews();
+
+    }
+
+    @Override
+    protected void onResume() {
+        registerReceiver(myBroadCastReceiver,new IntentFilter());
+        super.onResume();
     }
 
     @Override
@@ -88,6 +112,9 @@ public class ChatActivity extends Activity {
         RelativeLayout container = (RelativeLayout) findViewById(R.id.container);
         progressBar = (ProgressBar) findViewById(R.id.progressBar);
 
+
+
+
         Intent intent = getIntent();
 
         // Get chat dialog
@@ -100,6 +127,7 @@ public class ChatActivity extends Activity {
                 chat = new GroupChatManagerImpl(this);
                 container.removeView(meLabel);
                 container.removeView(companionLabel);
+
 
                 // Join group chat
                 //
@@ -124,9 +152,7 @@ public class ChatActivity extends Activity {
                 break;
             case PRIVATE:
                 Integer opponentID = ((ApplicationSingleton)getApplication()).getOpponentIDForPrivateDialog(dialog);
-
-                chat = new PrivateChatManagerImpl(this, opponentID);
-
+                chat = new PrivateChatManagerImpl(ChatActivity.this, opponentID);
                 companionLabel.setText(((ApplicationSingleton)getApplication()).getDialogsUsers().get(opponentID).getLogin());
 
                 // Load CHat history
@@ -170,19 +196,21 @@ public class ChatActivity extends Activity {
         QBRequestGetBuilder customObjectRequestBuilder = new QBRequestGetBuilder();
         customObjectRequestBuilder.setPagesLimit(100);
 
-        QBChatService.getDialogMessages(dialog, customObjectRequestBuilder, new QBEntityCallbackImpl<ArrayList<QBChatHistoryMessage>>() {
+        QBChatService.getDialogMessages(dialog, customObjectRequestBuilder, new QBEntityCallbackImpl<ArrayList<QBChatMessage>>() {
             @Override
-            public void onSuccess(ArrayList<QBChatHistoryMessage> messages, Bundle args) {
+            public void onSuccess(ArrayList<QBChatMessage> messages, Bundle args) {
                 history = messages;
 
-                adapter = new ChatAdapter(ChatActivity.this, new ArrayList<QBMessage>());
+                adapter = new ChatAdapter(ChatActivity.this, new ArrayList<QBChatMessage>());
                 messagesContainer.setAdapter(adapter);
 
-                for(QBMessage msg : messages) {
+                for(QBChatMessage msg : messages) {
                     showMessage(msg);
                 }
 
                 progressBar.setVisibility(View.GONE);
+
+                new ChatTestThread(ChatActivity.this).start();
             }
 
             @Override
@@ -193,7 +221,7 @@ public class ChatActivity extends Activity {
         });
     }
 
-    public void showMessage(QBMessage message) {
+    public void showMessage(QBChatMessage message) {
         adapter.add(message);
 
         runOnUiThread(new Runnable() {
@@ -210,4 +238,112 @@ public class ChatActivity extends Activity {
     }
 
     public static enum Mode {PRIVATE, GROUP}
+
+
+    class ChatTestThread extends Thread {
+
+
+        private final Activity activity;
+        public WifiManager wifiManager;
+        private int messageNum = 0;
+
+        ChatTestThread(Activity activity) {
+            this.activity = activity;
+            this.wifiManager = (WifiManager) activity.getSystemService(Context.WIFI_SERVICE);
+        }
+
+        @Override
+        public void run() {
+            super.run();
+            while (true) {
+                turnOnWifi();
+
+                int sizeBefore = adapter.getCount();
+                activity.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        messageEditText.setText("Test message " + messageNum);
+                        messageNum ++;
+                        sendButton.performClick();
+                    }
+                });
+                waitForMessagePosting(sizeBefore);
+
+                activity.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        turnOffScreen();
+                    }
+                });
+
+                switchWifiState();
+            }
+        }
+
+            private void turnOffScreen() {
+
+//            DevicePolicyManager mDPM = (DevicePolicyManager)getSystemService(Context.DEVICE_POLICY_SERVICE);
+
+            KeyguardManager km = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
+            final KeyguardManager.KeyguardLock kl = km .newKeyguardLock("MyKeyguardLock");
+            kl.disableKeyguard();
+
+
+            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            PowerManager.WakeLock wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK |PowerManager.ACQUIRE_CAUSES_WAKEUP
+                    | PowerManager.ON_AFTER_RELEASE, "MyWakeLock");
+            wakeLock.acquire();
+                startService(new Intent(ChatActivity.this, MyTurnOnService.class));
+            wakeLock.release();
+        }
+
+        private void waitForMessagePosting(int sizeBefore) {
+            while (sizeBefore >= adapter.getCount()) {
+                try {
+                    Thread.currentThread().sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        private void turnOnWifi() {
+
+            if (wifiManager.getWifiState() == WifiManager.WIFI_STATE_DISABLED){
+                switchWifiState();
+                while (wifiManager.getWifiState() == WifiManager.WIFI_STATE_DISABLED){
+                    try {
+                        Thread.currentThread().sleep(1000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+
+        private void switchWifiState() {
+            while (wifiManager.getWifiState() == WifiManager.WIFI_STATE_ENABLING
+                    || wifiManager.getWifiState() == WifiManager.WIFI_STATE_DISABLING
+                    || wifiManager.getWifiState() == WifiManager.WIFI_STATE_UNKNOWN) {
+                try {
+                    Thread.currentThread().sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            if (wifiManager.getWifiState() == WifiManager.WIFI_STATE_ENABLED) {
+                wifiManager.setWifiEnabled(false);
+                while (wifiManager.getWifiState() != WifiManager.WIFI_STATE_DISABLED){
+                    try {
+                        Thread.currentThread().sleep(1000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            } else {
+                wifiManager.setWifiEnabled(true);
+            }
+        }
+    }
 }

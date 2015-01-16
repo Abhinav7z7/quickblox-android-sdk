@@ -20,10 +20,13 @@ import java.util.List;
 
 public class SplashActivity extends Activity {
 
-    private static final String APP_ID = "92";
-    private static final String AUTH_KEY = "wJHdOcQSxXQGWx5";
-    private static final String AUTH_SECRET = "BTFsj7Rtt27DAmT";
+    private static final String APP_ID = "99";
+    private static final String AUTH_KEY = "63ebrp5VZt7qTOv";
+    private static final String AUTH_SECRET = "YavMAxm5T59-BRw";
     //
+//    private static final String USER_LOGIN = "bobbobbob11111";
+//    private static final String USER_PASSWORD = "bobbobbob11111";
+//
     private static final String USER_LOGIN = "bobbobbob";
     private static final String USER_PASSWORD = "bobbobbob";
 

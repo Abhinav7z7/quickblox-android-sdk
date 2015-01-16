@@ -240,7 +240,7 @@ public class MainActivity extends Activity implements View.OnClickListener, QBVi
 
         sessionId = null;
     }
-
+§
     private void enableCamera() {
         if (videoChat != null) {
             if (cameraEnabled) {

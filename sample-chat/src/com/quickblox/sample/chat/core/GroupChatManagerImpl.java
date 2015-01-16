@@ -3,6 +3,8 @@ package com.quickblox.sample.chat.core;
 import android.util.Log;
 import android.widget.Toast;
 
+import com.quickblox.chat.listeners.QBParticipantListener;
+import com.quickblox.chat.model.QBPresence;
 import com.quickblox.core.QBEntityCallback;
 import com.quickblox.core.QBEntityCallbackImpl;
 import com.quickblox.chat.QBChatService;
@@ -49,6 +51,17 @@ public class GroupChatManagerImpl extends QBMessageListenerImpl<QBGroupChat> imp
             public void onSuccess() {
 
                 groupChat.addMessageListener(GroupChatManagerImpl.this);
+
+
+                   groupChat.addParticipantListener(new QBParticipantListener() {
+                        @Override
+                        public void processPresence(QBGroupChat qbGroupChat, QBPresence qbPresence) {
+//                    if (qbPresence.getType() == QBPresence.Type.online && !qbPresence.getUserId().equals(SplashActivity.user.getId())) {
+                            Log.d("SUCCESS", "SUCCESS ");
+                            Log.d("SUCCESS", "User id " + qbPresence.getUserId() + " with status " + qbPresence.getType() + " joined");
+//                    Handler handler = new Handler
+                            Toast.makeText(chatActivity, qbPresence.getUserId() + " connected", Toast.LENGTH_LONG).show();
+                    }});
 
                 chatActivity.runOnUiThread(new Runnable() {
                     @Override
@@ -117,5 +130,13 @@ public class GroupChatManagerImpl extends QBMessageListenerImpl<QBGroupChat> imp
     @Override
     public void processError(QBGroupChat groupChat, QBChatException error, QBChatMessage originMessage){
 
+    }
+
+    public QBGroupChatManager getGroupChatManager() {
+        return groupChatManager;
+    }
+
+   public void setParticipantListener(QBParticipantListener participantListener){
+       groupChat.addParticipantListener(participantListener);
     }
 }
