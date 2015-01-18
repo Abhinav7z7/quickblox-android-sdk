@@ -29,19 +29,23 @@ import java.util.TimerTask;
         @Override
         public int onStartCommand(Intent intent, int flags, int startId) {
 
-                Notification notification = new Notification(R.drawable.abc_ab_bottom_solid_dark_holo, "test service",
-                        System.currentTimeMillis());
-                Intent notificationIntent = new Intent(this, SplashActivity.class);
-                PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0);
-                Notification.Builder builder = new Notification.Builder(this);
-                builder.setContentIntent(pendingIntent);
-                startForeground(111111, builder.build());
+            Notification notification = new Notification();
+            Intent notificationIntent = new Intent(this, ChatActivity.class);
+            PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0);
+
+            Notification.Builder builder = new Notification.Builder(this);
+            builder.setContentText("Content text");
+            builder.setContentIntent(pendingIntent);
+            Notification foregraundNitification = builder.build();
+            startForeground(11111, notification);
 
                 Timer timer = new Timer();
                 timer.schedule(new TimerTask() {
                     @Override
                     public void run() {
-                        startActivity(new Intent(getBaseContext(), SplashActivity.class));
+                        Intent intent1 = new Intent(getBaseContext(), SplashActivity.class);
+                        intent1.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent1);
                     }
                 }, 2000);
             return super.onStartCommand(intent, flags, startId);

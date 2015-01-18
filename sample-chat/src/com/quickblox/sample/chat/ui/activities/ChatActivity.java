@@ -80,16 +80,26 @@ public class ChatActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
-
+        Log.d("FIX", "turn on screen");
+        Window wind = this.getWindow();
+        wind.addFlags(WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD);
+        wind.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED);
+        wind.addFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
 
         initViews();
-
-    }
+   }
 
     @Override
     protected void onResume() {
         registerReceiver(myBroadCastReceiver,new IntentFilter());
         super.onResume();
+    }
+
+    @Override
+    protected void onPause() {
+        if (myBroadCastReceiver != null)
+        unregisterReceiver(myBroadCastReceiver);
+        super.onPause();
     }
 
     @Override
@@ -256,6 +266,7 @@ public class ChatActivity extends Activity {
         public void run() {
             super.run();
             while (true) {
+
                 turnOnWifi();
 
                 int sizeBefore = adapter.getCount();
@@ -263,38 +274,48 @@ public class ChatActivity extends Activity {
                     @Override
                     public void run() {
                         messageEditText.setText("Test message " + messageNum);
+                        Log.d("FIX", "add message");
                         messageNum ++;
                         sendButton.performClick();
+                        Log.d("FIX", "send message");
                     }
                 });
+
                 waitForMessagePosting(sizeBefore);
+
+
+//                activity.runOnUiThread(new Runnable() {
+//                    @Override
+//                    public void run() {
+                        turnOffScreen();
+                        Log.d("FIX", "turn off screen");
+//                    }
+//                });
+
+                switchWifiState();
 
                 activity.runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        turnOffScreen();
+                        startService(new Intent(activity, MyTurnOnService.class));
                     }
                 });
 
-                switchWifiState();
             }
         }
 
-            private void turnOffScreen() {
-
-//            DevicePolicyManager mDPM = (DevicePolicyManager)getSystemService(Context.DEVICE_POLICY_SERVICE);
-
-            KeyguardManager km = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
-            final KeyguardManager.KeyguardLock kl = km .newKeyguardLock("MyKeyguardLock");
-            kl.disableKeyguard();
 
 
-            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-            PowerManager.WakeLock wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK |PowerManager.ACQUIRE_CAUSES_WAKEUP
-                    | PowerManager.ON_AFTER_RELEASE, "MyWakeLock");
-            wakeLock.acquire();
-                startService(new Intent(ChatActivity.this, MyTurnOnService.class));
-            wakeLock.release();
+        private void turnOffScreen() {
+
+            DevicePolicyManager mDPM = (DevicePolicyManager)getSystemService(Context.DEVICE_POLICY_SERVICE);
+            mDPM.lockNow();
+            startService(new Intent(ChatActivity.this, MyTurnOnService.class));
+//            KeyguardManager.KeyguardLock key;
+//            KeyguardManager km = (KeyguardManager)getSystemService(KEYGUARD_SERVICE);
+//            key = KeyguardManager.KeyguardLock("IN");
+//            key.disableKeyguard();
+
         }
 
         private void waitForMessagePosting(int sizeBefore) {
@@ -305,6 +326,7 @@ public class ChatActivity extends Activity {
                     e.printStackTrace();
                 }
             }
+            Log.d("FIX", "message posted");
         }
 
         private void turnOnWifi() {
@@ -334,6 +356,7 @@ public class ChatActivity extends Activity {
 
             if (wifiManager.getWifiState() == WifiManager.WIFI_STATE_ENABLED) {
                 wifiManager.setWifiEnabled(false);
+                Log.d("FIX", "turn off wi-fi");
                 while (wifiManager.getWifiState() != WifiManager.WIFI_STATE_DISABLED){
                     try {
                         Thread.currentThread().sleep(1000);
@@ -343,6 +366,7 @@ public class ChatActivity extends Activity {
                 }
             } else {
                 wifiManager.setWifiEnabled(true);
+                Log.d("FIX", "turn on wi-fi");
             }
         }
     }
